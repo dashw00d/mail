@@ -57,6 +57,21 @@ async function loginAs(page: import('@playwright/test').Page, user: SeededUser) 
 }
 
 test.describe('Mail — Shared mailbox lifecycle as admin', () => {
+    test('admin can see personal mailbox metadata for organization members', async ({ page }) => {
+        const admin = await seedOrgUser('admin', 'personaladmin')
+        const teammate = await seedOrgUser('member', 'personalowner')
+
+        await loginAs(page, admin)
+        await navigateToMailboxSettings(page)
+
+        const personalFilter = page.getByText(/^Personal\s+\d+$/).first()
+        await expect(personalFilter).toBeVisible()
+        await expect(personalFilter).not.toHaveText('Personal 0')
+        await personalFilter.click()
+
+        await expect(page.getByText(teammate.email, { exact: true })).toBeVisible()
+    })
+
     test('creating a shared mailbox with a duplicate address surfaces a form error', async ({
         page,
     }) => {
