@@ -41,3 +41,18 @@ func TestParseRFC5322LegacyCharsets(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRFC5322UsesPlaceholderForBlankSubject(t *testing.T) {
+	raw := "From: sender@example.com\r\n" +
+		"To: recipient@example.com\r\n" +
+		"Message-ID: <no-subject@example.com>\r\n\r\n" +
+		"Message without a subject.\r\n"
+
+	message, err := parseRFC5322([]byte(raw))
+	if err != nil {
+		t.Fatalf("parseRFC5322 returned an error: %v", err)
+	}
+	if message.Subject != "(no subject)" {
+		t.Fatalf("Subject = %q, want %q", message.Subject, "(no subject)")
+	}
+}

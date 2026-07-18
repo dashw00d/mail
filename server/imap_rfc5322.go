@@ -180,6 +180,9 @@ func parseRFC5322(raw []byte) (*storedMessage, error) {
 
 	date, _ := h.Date()
 	subject, _ := h.Subject()
+	if strings.TrimSpace(subject) == "" {
+		subject = "(no subject)"
+	}
 	messageID, _ := h.MessageID()
 
 	msg := &storedMessage{
