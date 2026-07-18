@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/emersion/go-message/charset"
 	gomail "github.com/emersion/go-message/mail"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
