@@ -37,8 +37,8 @@ func findOrCreateThread(app core.App, mailboxID, subject, inReplyTo, references 
 	}
 
 	// 3. Match by normalized subject
-	normalized := normalizeSubject(subject)
-	if normalized != subject && normalized != "" {
+	normalized := normalizedThreadSubject(subject)
+	if normalized != subject && normalized != "(no subject)" {
 		threads, err := app.FindRecordsByFilter(
 			"mail_threads",
 			"mailbox = {:mailbox} && subject = {:subject}",
@@ -422,6 +422,14 @@ func normalizeSubject(subject string) string {
 		}
 	}
 	return s
+}
+
+func normalizedThreadSubject(subject string) string {
+	subject = normalizeSubject(subject)
+	if subject == "" {
+		return "(no subject)"
+	}
+	return subject
 }
 
 func truncateSnippet(text string, maxLen int) string {
