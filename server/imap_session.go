@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/emersion/go-imap/v2"
@@ -584,11 +585,21 @@ func (s *imapSession) Append(mailbox string, r imap.LiteralReader, options *imap
 		updateThreadMetadata(s.app, thread, msg.SenderName, msg.SenderEmail, snippet, msg.Date)
 	}
 
-	ensureThreadState(s.app, thread.Id, userOrgID, folder, false)
+	stateUserOrgIDs, err := s.appendStateUserOrgIDs(mailboxID, userOrgID)
+	if err != nil {
+		return nil, err
+	}
+	for _, stateUserOrgID := range stateUserOrgIDs {
+		if err := ensureThreadState(s.app, thread.Id, stateUserOrgID, folder, false); err != nil {
+			return nil, fmt.Errorf("failed to create APPEND thread state: %w", err)
+		}
+	}
 
 	// Apply flags from APPEND options
 	if options != nil && len(options.Flags) > 0 {
-		s.applyAppendFlags(thread.Id, userOrgID, options.Flags)
+		for _, stateUserOrgID := range stateUserOrgIDs {
+			s.applyAppendFlags(thread.Id, stateUserOrgID, options.Flags)
+		}
 	}
 
 	uid, err := ensureMessageUID(s.app, mailboxID, record)
@@ -605,6 +616,37 @@ func (s *imapSession) Append(mailbox string, r imap.LiteralReader, options *imap
 		UID:         imap.UID(uid),
 		UIDValidity: uidValidity,
 	}, nil
+}
+
+func (s *imapSession) appendStateUserOrgIDs(mailboxID, currentUserOrgID string) ([]string, error) {
+	configuredUser := strings.TrimSpace(os.Getenv("IMAP_SYNC_FANOUT_USER"))
+	if configuredUser == "" || s.user == nil ||
+		!strings.EqualFold(s.user.GetString("email"), configuredUser) {
+		return []string{currentUserOrgID}, nil
+	}
+
+	members, err := getMailboxMembers(s.app, mailboxID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load APPEND mailbox members: %w", err)
+	}
+
+	userOrgIDs := make([]string, 0, len(members))
+	seen := make(map[string]struct{}, len(members))
+	for _, member := range members {
+		userOrgID := member.GetString("user_org")
+		if userOrgID == "" {
+			continue
+		}
+		if _, exists := seen[userOrgID]; exists {
+			continue
+		}
+		seen[userOrgID] = struct{}{}
+		userOrgIDs = append(userOrgIDs, userOrgID)
+	}
+	if len(userOrgIDs) == 0 {
+		return nil, fmt.Errorf("no mailbox members found for APPEND fanout")
+	}
+	return userOrgIDs, nil
 }
 
 // Expunge permanently removes messages marked with \Deleted.
