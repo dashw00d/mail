@@ -619,13 +619,20 @@ func (s *imapSession) Append(mailbox string, r imap.LiteralReader, options *imap
 }
 
 func (s *imapSession) appendStateUserOrgIDs(mailboxID, currentUserOrgID string) ([]string, error) {
+	userEmail := ""
+	if s.user != nil {
+		userEmail = s.user.GetString("email")
+	}
+	return appendStateUserOrgIDs(s.app, userEmail, mailboxID, currentUserOrgID)
+}
+
+func appendStateUserOrgIDs(app core.App, userEmail, mailboxID, currentUserOrgID string) ([]string, error) {
 	configuredUser := strings.TrimSpace(os.Getenv("IMAP_SYNC_FANOUT_USER"))
-	if configuredUser == "" || s.user == nil ||
-		!strings.EqualFold(s.user.GetString("email"), configuredUser) {
+	if configuredUser == "" || !strings.EqualFold(userEmail, configuredUser) {
 		return []string{currentUserOrgID}, nil
 	}
 
-	members, err := getMailboxMembers(s.app, mailboxID)
+	members, err := getMailboxMembers(app, mailboxID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load APPEND mailbox members: %w", err)
 	}
